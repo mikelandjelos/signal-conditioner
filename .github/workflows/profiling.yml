@@ -1,0 +1,116 @@
+name: Profiling Non-Regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Two independent jobs — memory and timing — run in parallel.
+# Memory jobs are hard gates (fail the PR on regression).
+# Timing job is informational only (never fails the PR).
+
+jobs:
+  # ── Memory: AddressSanitizer + UBSan ──────────────────────────────────────
+  asan:
+    name: ASan · UBSan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: .cmake-deps
+          key: cmake-deps-gtest-v1.15.2
+
+      - name: Configure (ASan + UBSan)
+        run: |
+          cmake -B build-asan \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_ASAN=ON \
+            -DBUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build-asan --parallel
+
+      - name: Run tests under ASan/UBSan
+        run: cd build-asan && ctest --output-on-failure
+
+  # ── Memory: Valgrind Memcheck ─────────────────────────────────────────────
+  valgrind:
+    name: Valgrind Memcheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake valgrind
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: .cmake-deps
+          key: cmake-deps-gtest-v1.15.2
+
+      - name: Configure (plain Debug)
+        run: |
+          cmake -B build-debug \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DBUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build-debug --parallel
+
+      - name: Valgrind — test binary
+        run: |
+          valgrind \
+            --leak-check=full \
+            --show-leak-kinds=all \
+            --track-origins=yes \
+            --error-exitcode=1 \
+            ./build-debug/tests/virt_sig_cond_tests
+
+  # ── Timing: informational only (never blocks merge) ───────────────────────
+  #
+  # Shared CI runners have too much scheduling jitter to enforce the
+  # ±0.5 ms acceptance criterion — that requires dedicated hardware and a
+  # real dataset. This job runs the synthetic timing test from the suite
+  # and records stddev as a data point; it is always marked success.
+  #
+  # To enforce a timing budget, run the acceptance test locally against
+  # the real EuRoC dataset on a quiet machine (see docs/03-testing-workflow.md).
+  timing-informational:
+    name: Timing (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # never blocks merge
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: .cmake-deps
+          key: cmake-deps-gtest-v1.15.2
+
+      - name: Configure (Release)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run timing smoke test (RealTimePlayer.IntervalStddevReasonable)
+        run: |
+          ./build/tests/virt_sig_cond_tests \
+            --gtest_filter="RealTimePlayer.IntervalStddevReasonable" \
+            --gtest_print_time=1
+          echo "Note: stddev criterion (±0.5 ms at 200 Hz) is validated locally against the EuRoC dataset, not in CI."

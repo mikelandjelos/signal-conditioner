@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Format · Build · Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake clang-format
+
+      - name: Check formatting
+        run: clang-format --dry-run --Werror include/*.hpp src/*.cpp tests/*.cpp
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: .cmake-deps
+          key: cmake-deps-gtest-v1.15.2
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run tests
+        run: cd build && ctest --output-on-failure

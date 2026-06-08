@@ -1,0 +1,34 @@
+BasedOnStyle: Google
+Standard: c++17
+
+# Column limit — Google default is 80, bump slightly for template-heavy code
+ColumnLimit: 100
+
+# Pointer/reference alignment
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+# Include ordering
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Project headers first
+  - Regex:    '"(ingestion|player|fft|filter)\.hpp"'
+    Priority: 1
+  # Then other quoted headers
+  - Regex:    '".*"'
+    Priority: 2
+  # Then angle-bracket system headers
+  - Regex:    '<.*>'
+    Priority: 3
+
+# Brace style: Google default (Attach), keep it
+BreakBeforeBraces: Attach
+
+# Always use braces even for single-line if/for/while
+InsertBraces: true
+
+# Misc
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false

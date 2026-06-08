@@ -1,0 +1,6 @@
+build*/
+data/
+.cmake-deps/
+docs/doxygen/
+*.csv
+*.png
