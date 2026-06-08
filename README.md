@@ -1,4 +1,4 @@
 # Virtual Signal Conditioner
 
-- For all information regarding this project you can inspect ./project1.pdf
+- For all information regarding this project you can inspect project definition [document](./project1.pdf);
 
